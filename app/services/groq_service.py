@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import httpx
 
 from app.config import settings
-from app.services.rate_limiter import rate_limiter
+from app.services.rate_limiter import rate_limiter, MODEL_RATE_LIMITS
 from app.services.usage_tracker import usage_tracker
 
 logger = logging.getLogger(__name__)
@@ -236,7 +236,11 @@ class GroqService:
         payload: dict = {"model": model_id, "messages": messages, "stream": stream}
         if temperature is not None:
             payload["temperature"] = temperature
+        # Limit max_tokens to model limits
         if max_tokens is not None:
+            model_limit = MODEL_RATE_LIMITS.get(model_id, {}).get("max_tokens")
+            if model_limit and max_tokens > model_limit:
+                max_tokens = model_limit
             payload["max_tokens"] = max_tokens
         if top_p is not None:
             payload["top_p"] = top_p
