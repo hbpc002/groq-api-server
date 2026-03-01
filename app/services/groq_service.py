@@ -36,6 +36,32 @@ OPENAI_MODEL_ALIASES = {
     "gpt-3.5-turbo": "llama-3.3-70b-versatile",
 }
 
+# Max messages to keep (excluding system prompt) to avoid TPM overflow
+MAX_MESSAGES_TO_KEEP = 6
+
+
+def truncate_messages(messages: list[dict], max_messages: int = MAX_MESSAGES_TO_KEEP) -> list[dict]:
+    """Truncate messages to keep only the most recent ones, preserving system prompt."""
+    if not messages:
+        return messages
+    
+    # Separate system message from other messages
+    system_msg = None
+    other_msgs = []
+    for msg in messages:
+        if msg.get("role") == "system":
+            system_msg = msg
+        else:
+            other_msgs.append(msg)
+    
+    # Keep only the most recent max_messages
+    truncated = other_msgs[-max_messages:] if len(other_msgs) > max_messages else other_msgs
+    
+    # Prepend system message if exists
+    if system_msg:
+        return [system_msg] + truncated
+    return truncated
+
 
 @dataclass
 class GroqResponse:
@@ -237,6 +263,12 @@ class GroqService:
         total_chars = sum(len(str(m.get("content", ""))) for m in messages)
         logger.info("Request: model=%s, messages_count=%d, total_chars=%d, max_tokens=%s", 
                     model_id, len(messages), total_chars, max_tokens)
+
+        # Truncate messages to avoid TPM overflow
+        original_count = len(messages)
+        messages = truncate_messages(messages)
+        if len(messages) < original_count:
+            logger.info("Truncated messages from %d to %d", original_count, len(messages))
 
         payload: dict = {"model": model_id, "messages": messages, "stream": stream}
         if temperature is not None:
