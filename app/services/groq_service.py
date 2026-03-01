@@ -37,7 +37,7 @@ OPENAI_MODEL_ALIASES = {
 }
 
 # Max messages to keep (excluding system prompt) to avoid TPM overflow
-MAX_MESSAGES_TO_KEEP = 6
+MAX_MESSAGES_TO_KEEP = 3
 
 
 def truncate_messages(messages: list[dict], max_messages: int = MAX_MESSAGES_TO_KEEP) -> list[dict]:
