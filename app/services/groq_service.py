@@ -233,6 +233,11 @@ class GroqService:
         if not allowed:
             raise Exception(reason)
 
+        # Log incoming request details for debugging
+        total_chars = sum(len(str(m.get("content", ""))) for m in messages)
+        logger.info("Request: model=%s, messages_count=%d, total_chars=%d, max_tokens=%s", 
+                    model_id, len(messages), total_chars, max_tokens)
+
         payload: dict = {"model": model_id, "messages": messages, "stream": stream}
         if temperature is not None:
             payload["temperature"] = temperature
