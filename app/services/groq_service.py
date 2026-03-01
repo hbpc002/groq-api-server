@@ -218,6 +218,8 @@ class GroqService:
         stream: bool = False,
         top_p: float | None = None,
         stop: str | list[str] | None = None,
+        tools: list | None = None,
+        tool_choice: str | dict | None = None,
     ):
         """Send an OpenAI-compatible chat completions request to Groq.
         If stream=True, returns an async generator of SSE chunks.
@@ -240,6 +242,10 @@ class GroqService:
             payload["top_p"] = top_p
         if stop is not None:
             payload["stop"] = stop
+        if tools is not None:
+            payload["tools"] = tools
+        if tool_choice is not None:
+            payload["tool_choice"] = tool_choice
 
         async with self._semaphore:
             rate_limiter.record_request(model_id)

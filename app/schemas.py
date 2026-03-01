@@ -30,6 +30,8 @@ class OpenAIMessage(BaseModel):
     role: str  # "system", "user", "assistant"
     content: Union[str, list[Any], None] = None
     name: str | None = None
+    tool_call_id: str | None = None
+    tool_calls: list | None = None
 
     def text(self) -> str:
         """Extract plain text from content (handles str and array-of-parts)."""
@@ -55,6 +57,8 @@ class OpenAIChatRequest(BaseModel):
     stream: bool = False
     top_p: float | None = None
     stop: Union[str, list[str], None] = None
+    tools: list | None = None
+    tool_choice: Union[str, dict, None] = None
 
 
 class OpenAIChatChoice(BaseModel):

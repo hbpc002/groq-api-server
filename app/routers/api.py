@@ -137,6 +137,11 @@ async def openai_chat_completions(req: OpenAIChatRequest, _: str = Depends(verif
         m = {"role": msg.role, "content": msg.text()}
         if msg.name:
             m["name"] = msg.name
+        # Handle tool messages
+        if hasattr(msg, "tool_call_id") and msg.tool_call_id:
+            m["tool_call_id"] = msg.tool_call_id
+        if hasattr(msg, "tool_calls") and msg.tool_calls:
+            m["tool_calls"] = msg.tool_calls
         messages.append(m)
 
     if not any(m["content"] for m in messages if m["role"] == "user"):
@@ -153,6 +158,8 @@ async def openai_chat_completions(req: OpenAIChatRequest, _: str = Depends(verif
                 stream=True,
                 top_p=req.top_p,
                 stop=req.stop,
+                tools=req.tools,
+                tool_choice=req.tool_choice,
             )
         except Exception as e:
             raise HTTPException(status_code=502, detail=str(e))
@@ -177,6 +184,8 @@ async def openai_chat_completions(req: OpenAIChatRequest, _: str = Depends(verif
             stream=False,
             top_p=req.top_p,
             stop=req.stop,
+            tools=req.tools,
+            tool_choice=req.tool_choice,
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
