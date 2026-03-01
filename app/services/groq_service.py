@@ -241,11 +241,12 @@ class GroqService:
         payload: dict = {"model": model_id, "messages": messages, "stream": stream}
         if temperature is not None:
             payload["temperature"] = temperature
-        # Limit max_tokens to model limits
+        # Limit max_tokens to model limits (override client request)
         if max_tokens is not None:
             model_limit = MODEL_RATE_LIMITS.get(model_id, {}).get("max_tokens")
-            if model_limit and max_tokens > model_limit:
-                max_tokens = model_limit
+            if model_limit:
+                max_tokens = min(max_tokens, model_limit)
+        if max_tokens is not None:
             payload["max_tokens"] = max_tokens
         if top_p is not None:
             payload["top_p"] = top_p
