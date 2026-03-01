@@ -199,3 +199,28 @@ async def openai_chat_completions(req: OpenAIChatRequest, _: str = Depends(verif
 async def openai_list_models(_: str = Depends(verify_token)):
     """OpenAI-compatible model listing."""
     return _build_openai_models_list()
+
+
+# --- Settings endpoints ---
+
+@router.get("/settings")
+async def get_settings(_: str = Depends(verify_token)):
+    """Get current settings."""
+    from app.services.rate_limiter import get_all_model_settings
+    return {
+        "max_messages_to_keep": settings.max_messages_to_keep,
+        "model_settings": get_all_model_settings(),
+    }
+
+
+@router.post("/settings")
+async def update_settings(req: dict, _: str = Depends(verify_token)):
+    """Update settings. Requires restart to take effect for most settings."""
+    if "max_messages_to_keep" in req:
+        settings.max_messages_to_keep = int(req["max_messages_to_keep"])
+    
+    if "model_settings" in req:
+        import json
+        settings.model_settings = json.dumps(req["model_settings"])
+    
+    return {"status": "ok"}

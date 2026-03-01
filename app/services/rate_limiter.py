@@ -4,6 +4,8 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 
+from app.config import settings
+
 
 # Groq free-tier rate limits per model
 MODEL_RATE_LIMITS: dict[str, dict] = {
@@ -13,6 +15,29 @@ MODEL_RATE_LIMITS: dict[str, dict] = {
     "qwen/qwen3-32b": {"rpm": 60, "rpd": 1000, "tpm": 6000, "tpd": 500000, "max_tokens": 2048},
     "moonshotai/kimi-k2-instruct": {"rpm": 60, "rpd": 1000, "tpm": 10000, "tpd": 500000, "max_tokens": 2048},
 }
+
+
+def get_model_max_tokens(model_id: str) -> int:
+    """Get max_tokens for a model from settings or fall back to default."""
+    model_settings = settings.model_settings_dict.get(model_id, {})
+    if "max_tokens" in model_settings:
+        return model_settings["max_tokens"]
+    return MODEL_RATE_LIMITS.get(model_id, {}).get("max_tokens", 2048)
+
+
+def get_all_model_settings() -> dict:
+    """Get all model settings including rate limits and custom max_tokens."""
+    result = {}
+    for model_id, limits in MODEL_RATE_LIMITS.items():
+        custom = settings.model_settings_dict.get(model_id, {})
+        result[model_id] = {
+            "rpm": limits.get("rpm"),
+            "rpd": limits.get("rpd"),
+            "tpm": limits.get("tpm"),
+            "tpd": limits.get("tpd"),
+            "max_tokens": custom.get("max_tokens", limits.get("max_tokens", 2048)),
+        }
+    return result
 
 
 @dataclass

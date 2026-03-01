@@ -9,40 +9,17 @@ from dataclasses import dataclass
 import httpx
 
 from app.config import settings
-from app.services.rate_limiter import rate_limiter, MODEL_RATE_LIMITS
+from app.services.rate_limiter import rate_limiter, MODEL_RATE_LIMITS, get_model_max_tokens
 from app.services.usage_tracker import usage_tracker
 
 logger = logging.getLogger(__name__)
 
-# Model map: short name -> full Groq model ID
-MODEL_MAP = {
-    "gpt-oss-120b": "openai/gpt-oss-120b",
-    "gpt-oss-20b": "openai/gpt-oss-20b",
-    "llama-70b": "llama-3.3-70b-versatile",
-    "qwen-32b": "qwen/qwen3-32b",
-    # Full IDs map to themselves
-    "openai/gpt-oss-120b": "openai/gpt-oss-120b",
-    "openai/gpt-oss-20b": "openai/gpt-oss-20b",
-    "llama-3.3-70b-versatile": "llama-3.3-70b-versatile",
-    "qwen/qwen3-32b": "qwen/qwen3-32b",
-}
 
-# OpenAI-compatible model name aliases -> Groq model IDs
-OPENAI_MODEL_ALIASES = {
-    "gpt-4o": "openai/gpt-oss-120b",
-    "gpt-4": "openai/gpt-oss-120b",
-    "gpt-4-turbo": "openai/gpt-oss-120b",
-    "gpt-4o-mini": "openai/gpt-oss-20b",
-    "gpt-3.5-turbo": "llama-3.3-70b-versatile",
-}
-
-# Max messages to keep (excluding system prompt) to avoid TPM overflow
-MAX_MESSAGES_TO_KEEP = 3
-
-
-def truncate_messages(messages: list[dict], max_messages: int = MAX_MESSAGES_TO_KEEP) -> list[dict]:
+def truncate_messages(messages: list[dict], max_messages: int | None = None) -> list[dict]:
     """Truncate messages to keep only the most recent ones, preserving system prompt."""
-    if not messages:
+    if max_messages is None:
+        max_messages = settings.max_messages_to_keep
+    if not messages or max_messages <= 0:
         return messages
     
     # Separate system message from other messages
@@ -61,6 +38,31 @@ def truncate_messages(messages: list[dict], max_messages: int = MAX_MESSAGES_TO_
     if system_msg:
         return [system_msg] + truncated
     return truncated
+
+
+# Model map: short name -> full Groq model ID
+MODEL_MAP = {
+    "gpt-oss-120b": "openai/gpt-oss-120b",
+    "gpt-oss-20b": "openai/gpt-oss-20b",
+    "llama-70b": "llama-3.3-70b-versatile",
+    "qwen-32b": "qwen/qwen3-32b",
+    "kimi-k2": "moonshotai/kimi-k2-instruct",
+    # Full IDs map to themselves
+    "openai/gpt-oss-120b": "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b": "openai/gpt-oss-20b",
+    "llama-3.3-70b-versatile": "llama-3.3-70b-versatile",
+    "qwen/qwen3-32b": "qwen/qwen3-32b",
+    "moonshotai/kimi-k2-instruct": "moonshotai/kimi-k2-instruct",
+}
+
+# OpenAI-compatible model name aliases -> Groq model IDs
+OPENAI_MODEL_ALIASES = {
+    "gpt-4o": "openai/gpt-oss-120b",
+    "gpt-4": "openai/gpt-oss-120b",
+    "gpt-4-turbo": "openai/gpt-oss-120b",
+    "gpt-4o-mini": "openai/gpt-oss-20b",
+    "gpt-3.5-turbo": "llama-3.3-70b-versatile",
+}
 
 
 @dataclass
@@ -274,12 +276,12 @@ class GroqService:
         if temperature is not None:
             payload["temperature"] = temperature
         # Limit max_tokens to model limits (override client request)
+        model_limit = get_model_max_tokens(model_id)
         if max_tokens is not None:
-            model_limit = MODEL_RATE_LIMITS.get(model_id, {}).get("max_tokens")
-            if model_limit:
-                max_tokens = min(max_tokens, model_limit)
-        if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
+            max_tokens = min(max_tokens, model_limit)
+        else:
+            max_tokens = model_limit
+        payload["max_tokens"] = max_tokens
         if top_p is not None:
             payload["top_p"] = top_p
         if stop is not None:
